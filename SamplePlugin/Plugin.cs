@@ -1,10 +1,13 @@
-﻿using Dalamud.Game.Command;
+
+using Dalamud.Game.Command;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using System.IO;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 using SamplePlugin.Windows;
+using System;
+using System.Diagnostics;
 
 namespace SamplePlugin;
 
@@ -16,12 +19,16 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
 
-    private const string CommandName = "/pmycommand";
+    private const string CommandName = "/sct";
+    private static readonly string CommandFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Kintelligence", "Plugin", "StrawberryCookieTools.txt");
+
+    private readonly Stopwatch fileCheckStopwatch = new();
 
     public Configuration Configuration { get; init; }
 
-    public readonly WindowSystem WindowSystem = new("SamplePlugin");
+    public readonly WindowSystem WindowSystem = new("StrawberryCookieTools");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
 
@@ -29,7 +36,6 @@ public sealed class Plugin : IDalamudPlugin
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
-        // You might normally want to embed resources and load them from the manifest stream
         var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
 
         ConfigWindow = new ConfigWindow(this);
@@ -40,28 +46,23 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "A useful message to display in /xlhelp"
+            HelpMessage = "Opens the main window."
         });
 
-        // Tell the UI system that we want our windows to be drawn throught he window system
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
-
-        // This adds a button to the plugin installer entry of this plugin which allows
-        // toggling the display status of the configuration ui
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUi;
-
-        // Adds another button doing the same but for the main ui of the plugin
         PluginInterface.UiBuilder.OpenMainUi += ToggleMainUi;
 
-        // Add a simple message to the log with level set to information
-        // Use /xllog to open the log window in-game
-        // Example Output: 00:57:54.959 | INF | [SamplePlugin] ===A cool log message from Sample Plugin===
-        Log.Information($"===A cool log message from {PluginInterface.Manifest.Name}===");
+        Framework.Update += OnFrameworkUpdate;
+        fileCheckStopwatch.Start();
+
+        Log.Information($"=== Initialized {PluginInterface.Manifest.Name} ===");
     }
 
     public void Dispose()
     {
-        // Unregister all actions to not leak anythign during disposal of plugin
+        Framework.Update -= OnFrameworkUpdate;
+        
         PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUi;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;
@@ -74,12 +75,51 @@ public sealed class Plugin : IDalamudPlugin
         CommandManager.RemoveHandler(CommandName);
     }
 
+    private void OnFrameworkUpdate(IFramework framework)
+    {
+        if (fileCheckStopwatch.ElapsedMilliseconds < 200)
+        {
+            return;
+        }
+        fileCheckStopwatch.Restart();
+
+        try
+        {
+            if (!File.Exists(CommandFilePath))
+            {
+                var directory = Path.GetDirectoryName(CommandFilePath);
+                if (directory != null && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                File.Create(CommandFilePath).Close();
+                return;
+            }
+
+            var command = File.ReadAllText(CommandFilePath).Trim();
+
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                return;
+            }
+
+            Log.Information($"Executing command from file: {command}");
+            CommandManager.ProcessCommand(command);
+            
+            File.WriteAllText(CommandFilePath, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error processing command file.");
+        }
+    }
+
     private void OnCommand(string command, string args)
     {
-        // In response to the slash command, toggle the display status of our main ui
         MainWindow.Toggle();
     }
     
     public void ToggleConfigUi() => ConfigWindow.Toggle();
     public void ToggleMainUi() => MainWindow.Toggle();
 }
+

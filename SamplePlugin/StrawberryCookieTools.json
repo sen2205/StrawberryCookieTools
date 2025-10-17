@@ -1,0 +1,11 @@
+{
+  "Author": "Gemini",
+  "Name": "StrawberryCookieTools",
+  "Punchline": "A tool to execute commands from a file.",
+  "Description": "Monitors a file and executes commands found within it.",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "utility",
+    "commands"
+  ]
+}

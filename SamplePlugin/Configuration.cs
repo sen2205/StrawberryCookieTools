@@ -11,6 +11,8 @@ public class Configuration : IPluginConfiguration
     public bool IsConfigWindowMovable { get; set; } = true;
     public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
 
+    public string CommandFilePath { get; set; } = string.Empty;
+
     // The below exist just to make saving less cumbersome
     public void Save()
     {
