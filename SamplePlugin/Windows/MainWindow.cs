@@ -1,4 +1,6 @@
 ﻿using System;
+using System;
+using System.Diagnostics;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
@@ -33,6 +35,10 @@ public class MainWindow : Window, IDisposable
 
     public override void Draw()
     {
+        ImGui.TextUnformatted($"PID: {Process.GetCurrentProcess().Id}");
+        ImGui.TextUnformatted($"Content ID: {Plugin.ClientState.LocalContentId}");
+        ImGui.Spacing();
+        
         ImGui.TextUnformatted($"The random config bool is {plugin.Configuration.SomePropertyToBeSavedAndWithADefault}");
 
         if (ImGui.Button("Show Settings"))

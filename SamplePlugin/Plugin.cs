@@ -8,6 +8,7 @@ using Dalamud.Plugin.Services;
 using SamplePlugin.Windows;
 using System;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace SamplePlugin;
 
@@ -25,6 +26,7 @@ public sealed class Plugin : IDalamudPlugin
     private static readonly string CommandFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Kintelligence", "Plugin", "StrawberryCookieTools.txt");
 
     private readonly Stopwatch fileCheckStopwatch = new();
+    private ulong _loggedInContentId;
 
     public Configuration Configuration { get; init; }
 
@@ -56,6 +58,9 @@ public sealed class Plugin : IDalamudPlugin
         Framework.Update += OnFrameworkUpdate;
         fileCheckStopwatch.Start();
 
+        ClientState.Login += OnLogin;
+        ClientState.Logout += OnLogout;
+
         Log.Information($"=== Initialized {PluginInterface.Manifest.Name} ===");
     }
 
@@ -73,6 +78,69 @@ public sealed class Plugin : IDalamudPlugin
         MainWindow.Dispose();
 
         CommandManager.RemoveHandler(CommandName);
+        
+        ClientState.Login -= OnLogin;
+        ClientState.Logout -= OnLogout;
+    }
+
+    private void OnLogin()
+    {
+        try
+        {
+            var contentId = ClientState.LocalContentId;
+            if (contentId == 0) return;
+
+            _loggedInContentId = contentId;
+
+            var pid = Process.GetCurrentProcess().Id;
+            var directoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Kintelligence", "Plugin", "StrawberryCookieTools");
+            var filePath = Path.Combine(directoryPath, $"{contentId}.json"); // Change extension to .json
+
+            Directory.CreateDirectory(directoryPath);
+
+            var localPlayer = ClientState.LocalPlayer;
+            var loginInfo = new CharacterLoginInfo
+            {
+                Pid = pid,
+                ContentId = contentId,
+                CharacterName = localPlayer?.Name.ToString(),
+                WorldName = localPlayer?.HomeWorld.Value.Name.ToString(),
+                ClassJobAbbreviation = localPlayer?.ClassJob.Value.Abbreviation.ToString(),
+                Level = localPlayer?.Level ?? 0
+            };
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            var jsonString = JsonSerializer.Serialize(loginInfo, options);
+
+            File.WriteAllText(filePath, jsonString);
+            Log.Information($"Created JSON file for Content ID {contentId} at {filePath}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error creating JSON file.");
+        }
+    }
+
+    private void OnLogout(int type, int code)
+    {
+        try
+        {
+            if (_loggedInContentId == 0) return;
+
+            var directoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Kintelligence", "Plugin", "StrawberryCookieTools");
+            var filePath = Path.Combine(directoryPath, $"{_loggedInContentId}.json"); // Change extension to .json
+
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+                Log.Information($"Deleted JSON file for Content ID {_loggedInContentId} at {filePath}");
+            }
+            _loggedInContentId = 0;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error deleting JSON file.");
+        }
     }
 
     private void OnFrameworkUpdate(IFramework framework)
@@ -121,5 +189,15 @@ public sealed class Plugin : IDalamudPlugin
     
     public void ToggleConfigUi() => ConfigWindow.Toggle();
     public void ToggleMainUi() => MainWindow.Toggle();
+}
+
+public class CharacterLoginInfo
+{
+    public int Pid { get; set; }
+    public ulong ContentId { get; set; }
+    public string? CharacterName { get; set; }
+    public string? WorldName { get; set; }
+    public string? ClassJobAbbreviation { get; set; }
+    public int Level { get; set; }
 }
 

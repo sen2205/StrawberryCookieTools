@@ -29,6 +29,34 @@ This is not designed to be the simplest possible example, but it is also not des
   * Hides data files from visual studio to reduce clutter
     * Also allows having data files in different paths than VS would usually allow if done in the IDE directly
 
+### Character Login Data File
+
+When a character logs in, a JSON file containing their login information is created in the following directory:
+
+`%USERPROFILE%\Documents\Kintelligence\Plugin\StrawberryCookieTools`
+
+The file is named after the character's `ContentId` (e.g., `1234567890.json`). This file is automatically deleted when the character logs out.
+
+The structure of the JSON file is as follows:
+
+```json
+{
+  "Pid": 12345,
+  "ContentId": 678901234567890,
+  "CharacterName": "Test Character",
+  "WorldName": "Test World",
+  "ClassJobAbbreviation": "WAR",
+  "Level": 90
+}
+```
+
+- `Pid`: The process ID of the FFXIV client.
+- `ContentId`: The unique content ID of the logged-in character.
+- `CharacterName`: The name of the logged-in character.
+- `WorldName`: The home world of the logged-in character.
+- `ClassJobAbbreviation`: The abbreviation of the character's current class/job.
+- `Level`: The current level of the character.
+
 
 The intention is less that any of this is used directly in other projects, and more to show how similar things can be done.
 
